@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Journal - Unified Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #0f172a; color: #cbd5e1;}
+        .stat-card { background-color: #1e293b; border: 1px solid #334155; }
+        .table-container { background-color: #1e293b; border: 1px solid #334155; }
+        .modal-content { background-color: #1e293b; }
+        input, select, textarea { background-color: #334155; border-color: #475569; color: #f1f5f9; }
+        input:focus, select:focus, textarea:focus { border-color: #38bdf8; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3); outline: none; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .price-up { color: #4ade80; transition: color 0.3s ease; }
+        .price-down { color: #f87171; transition: color 0.3s ease; }
+    </style>
+</head>
+<body class="text-slate-300">
+
+    <!-- Modals -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-slate-100">ตั้งค่าพอร์ตโฟลิโอ</h3>
+            <div class="mt-4">
+                <label for="initial-capital-input" class="block text-sm font-medium text-slate-400">เงินทุนเริ่มต้น</label>
+                <input type="number" id="initial-capital-input" step="any" required class="mt-1 block w-full rounded-md p-2">
+            </div>
+            <div class="mt-4 flex justify-end space-x-2">
+                <button id="settings-modal-cancel" class="px-4 py-2 bg-slate-600 text-slate-100 rounded-md hover:bg-slate-500">ยกเลิก</button>
+                <button id="settings-modal-confirm" class="px-4 py-2 bg-sky-600 text-white rounded-md hover:bg-sky-500">บันทึก</button>
+            </div>
+        </div>
+    </div>
+    <div id="close-position-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-slate-100">ปิดสถานะ (Close Position)</h3>
+            <div class="mt-4">
+                <label for="close-price-input" class="block text-sm font-medium text-slate-400">กรอกราคาปิด</label>
+                <input type="number" id="close-price-input" step="any" required class="mt-1 block w-full rounded-md p-2">
+            </div>
+            <div class="mt-4 flex justify-end space-x-2">
+                <button id="close-modal-cancel" class="px-4 py-2 bg-slate-600 text-slate-100 rounded-md hover:bg-slate-500">ยกเลิก</button>
+                <button id="close-modal-confirm" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500">ยืนยันการปิด</button>
+            </div>
+        </div>
+    </div>
+    <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content rounded-lg shadow-xl p-6 w-full max-w-sm">
+            <h3 class="text-lg font-bold text-slate-100">ยืนยันการลบ</h3>
+            <p class="mt-2 text-sm text-slate-400">คุณแน่ใจหรือไม่ที่จะลบรายการนี้? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
+            <div class="mt-4 flex justify-end space-x-2">
+                <button id="delete-modal-cancel" class="px-4 py-2 bg-slate-600 text-slate-100 rounded-md hover:bg-slate-500">ยกเลิก</button>
+                <button id="delete-modal-confirm" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-500">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-slate-900/70 backdrop-blur-sm shadow-sm sticky top-0 z-40">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-100">Trading Journal Pro</h1>
+                <p class="text-slate-400">Unified Portfolio Dashboard</p>
+            </div>
+            <button id="settings-btn" class="p-2 rounded-full hover:bg-slate-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- Open Positions Section -->
+        <section id="open-positions" class="mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-slate-100">สถานะที่เปิดอยู่ (Open Positions)</h2>
+            <div class="table-container rounded-lg shadow overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-700">
+                    <thead class="bg-slate-800/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Symbol</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Side</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ราคาเปิด</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ราคาตลาด (Live)</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Unrealized P&L</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="open-positions-table-body" class="divide-y divide-slate-700"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-slate-100">ภาพรวมประสิทธิภาพ</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 stat-card">
+                    <h3 class="text-lg font-semibold text-slate-200 mb-2">Equity Curve</h3>
+                    <div class="chart-container"><canvas id="equityChart"></canvas></div>
+                </div>
+                <div class="stat-card space-y-4">
+                    <div class="flex justify-between items-baseline"><span class="text-slate-400">Gain:</span><span id="stat-gain" class="font-semibold text-2xl text-green-400">0.00%</span></div>
+                    <div class="flex justify-between items-baseline"><span class="text-slate-400">Abs. Gain:</span><span id="stat-abs-gain" class="font-semibold text-2xl text-green-400">0.00%</span></div>
+                    <hr class="border-slate-700">
+                    <div class="flex justify-between items-baseline"><span class="text-slate-400">Daily:</span><span id="stat-daily" class="font-semibold text-slate-200">0.00%</span></div>
+                    <div class="flex justify-between items-baseline"><span class="text-slate-400">Monthly:</span><span id="stat-monthly" class="font-semibold text-slate-200">0.00%</span></div>
+                    <div class="flex justify-between items-baseline"><span class="text-slate-400">Drawdown:</span><span id="stat-drawdown" class="font-semibold text-red-400">0.00%</span></div>
+                    <hr class="border-slate-700">
+                    <div class="flex justify-between items-baseline"><span class="text-slate-400">Balance:</span><span id="stat-balance" class="font-semibold text-sky-400">฿0.00</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Advanced Stats -->
+        <section id="advanced-stats" class="mb-8">
+             <h2 class="text-xl font-semibold mb-4 text-slate-100">Advanced Statistics</h2>
+             <div class="stat-card">
+                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
+                    <div class="flex justify-between"><span class="text-slate-400">Trades:</span><span id="stat-trades" class="font-semibold text-slate-200">0</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Profitability:</span><span id="stat-profitability" class="font-semibold text-slate-200">0%</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Profit Factor:</span><span id="stat-profit-factor" class="font-semibold text-slate-200">N/A</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Standard Deviation:</span><span id="stat-std-dev" class="font-semibold text-slate-200">฿0.00</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Sharpe Ratio (annualized):</span><span class="font-semibold text-slate-500 italic">N/A</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Expectancy:</span><span id="stat-expectancy" class="font-semibold text-slate-200">฿0.00</span></div>
+                    <hr class="border-slate-700 md:col-span-2 lg:col-span-3">
+                    <div class="flex justify-between"><span class="text-slate-400">Average Win:</span><span id="stat-avg-win" class="font-semibold text-green-400">฿0.00</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Average Loss:</span><span id="stat-avg-loss" class="font-semibold text-red-400">฿0.00</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Avg. Trade Length:</span><span id="stat-avg-trade-length" class="font-semibold text-slate-200">N/A</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Best Trade (P&L):</span><span id="stat-best-trade" class="font-semibold text-green-400">฿0.00</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Worst Trade (P&L):</span><span id="stat-worst-trade" class="font-semibold text-red-400">฿0.00</span></div>
+                    <div class="flex justify-between"><span class="text-slate-400">Total Commissions:</span><span id="stat-commissions" class="font-semibold text-slate-200">฿0.00</span></div>
+                 </div>
+             </div>
+        </section>
+
+        <!-- Trade Entry Section -->
+        <section id="trade-entry" class="mb-8">
+            <div class="stat-card">
+                <h2 class="text-xl font-semibold mb-4 text-slate-100">เปิดสถานะใหม่ (Open New Position)</h2>
+                <form id="open-position-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="instrument" class="block text-sm font-medium text-slate-400">สินทรัพย์</label>
+                        <select id="instrument" required class="mt-1 block w-full rounded-md p-2">
+                            <option value="S50">S50 Futures</option>
+                            <option value="GO">Gold Futures</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="open-price" class="block text-sm font-medium text-slate-400">ราคาเปิด</label>
+                        <input type="number" id="open-price" step="any" required class="mt-1 block w-full rounded-md p-2">
+                    </div>
+                    <div>
+                        <label for="side" class="block text-sm font-medium text-slate-400">ฝั่ง (Side)</label>
+                        <select id="side" required class="mt-1 block w-full rounded-md p-2"><option value="LONG">Long</option><option value="SHORT">Short</option></select>
+                    </div>
+                    <div>
+                        <label for="contracts" class="block text-sm font-medium text-slate-400">จำนวนสัญญา</label>
+                        <input type="number" id="contracts" min="1" value="1" required class="mt-1 block w-full rounded-md p-2">
+                    </div>
+                    <div class="col-span-1 md:col-span-2 lg:col-span-2">
+                        <label for="strategy" class="block text-sm font-medium text-slate-400">กลยุทธ์ / บันทึก</label>
+                        <textarea id="strategy" rows="2" class="mt-1 block w-full rounded-md p-2"></textarea>
+                    </div>
+                     <div class="col-span-1 md:col-span-2 lg:col-span-2">
+                        <label for="emotion" class="block text-sm font-medium text-slate-400">สภาวะอารมณ์</label>
+                        <select id="emotion" required class="mt-1 block w-full rounded-md p-2">
+                            <option value="มีวินัย">มีวินัย</option><option value="มั่นใจ">มั่นใจ</option><option value="ลังเล">ลังเล</option>
+                            <option value="โลภ">โลภ</option><option value="กลัว">กลัว</option><option value="หงุดหงิด">หงุดหงิด</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1 md:col-span-2 lg:col-span-4">
+                        <button type="submit" class="w-full bg-sky-600 text-white font-bold py-2 px-4 rounded-md hover:bg-sky-500 transition-colors">เปิดสถานะ</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Closed Trades History Section -->
+        <section id="closed-trades-history">
+            <h2 class="text-xl font-semibold mb-4 text-slate-100">ประวัติการเทรดที่ปิดแล้ว</h2>
+            <div class="table-container rounded-lg shadow overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-700">
+                    <thead class="bg-slate-800/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">เวลา เปิด/ปิด</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Symbol</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Side</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">ราคา เปิด/ปิด</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Net P&L</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="closed-trades-table-body" class="divide-y divide-slate-700"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const INSTRUMENT_CONFIG = {
+            'S50': { symbol: 'S50U25', multiplier: 200, commissionPerContract: 26.75, tick: 0.1, decimalPlaces: 1 },
+            'GO': { symbol: 'GOZ25', multiplier: 300, commissionPerContract: 58.85, tick: 0.1, decimalPlaces: 1 }
+        };
+        
+        let journalData = JSON.parse(localStorage.getItem('tradingJournalData_v10')) || {
+            portfolio: { openPositions: [], closedTrades: [], initialCapital: 100000 }
+        };
+        
+        const marketPrices = {};
+        Object.values(INSTRUMENT_CONFIG).forEach(config => {
+            marketPrices[config.symbol] = 0;
+        });
+
+        const elements = {
+            openPositionForm: document.getElementById('open-position-form'),
+            openPositionsTableBody: document.getElementById('open-positions-table-body'),
+            closedTradesTableBody: document.getElementById('closed-trades-table-body'),
+            settingsModal: document.getElementById('settings-modal'),
+            settingsBtn: document.getElementById('settings-btn'),
+            settingsModalCancel: document.getElementById('settings-modal-cancel'),
+            settingsModalConfirm: document.getElementById('settings-modal-confirm'),
+            initialCapitalInput: document.getElementById('initial-capital-input'),
+            closePositionModal: document.getElementById('close-position-modal'),
+            closePositionInput: document.getElementById('close-price-input'),
+            closeModalConfirmBtn: document.getElementById('close-modal-confirm'),
+            closeModalCancelBtn: document.getElementById('close-modal-cancel'),
+            deleteModal: document.getElementById('delete-modal'),
+            deleteModalConfirm: document.getElementById('delete-modal-confirm'),
+            deleteModalCancel: document.getElementById('delete-modal-cancel'),
+            stats: {
+                gain: document.getElementById('stat-gain'), absGain: document.getElementById('stat-abs-gain'),
+                daily: document.getElementById('stat-daily'), monthly: document.getElementById('stat-monthly'),
+                drawdown: document.getElementById('stat-drawdown'), balance: document.getElementById('stat-balance'),
+                trades: document.getElementById('stat-trades'), profitability: document.getElementById('stat-profitability'),
+                profitFactor: document.getElementById('stat-profit-factor'), stdDev: document.getElementById('stat-std-dev'),
+                expectancy: document.getElementById('stat-expectancy'), avgWin: document.getElementById('stat-avg-win'),
+                avgLoss: document.getElementById('stat-avg-loss'), avgTradeLength: document.getElementById('stat-avg-trade-length'),
+                bestTrade: document.getElementById('stat-best-trade'), worstTrade: document.getElementById('stat-worst-trade'),
+                commissions: document.getElementById('stat-commissions'),
+            }
+        };
+
+        let positionToClose = null;
+        let itemToDelete = null;
+        let focusedInputIndex = null;
+
+        const ctx = document.getElementById('equityChart').getContext('2d');
+        const equityChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Equity', data: [] }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: false, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                },
+                plugins: { legend: { display: false }, tooltip: { bodyFont: { family: 'Sarabun' }, titleFont: { family: 'Sarabun' } } },
+                datasets: { line: { borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', borderWidth: 2, tension: 0.1, fill: true, pointRadius: 0 } }
+            }
+        });
+
+        function showSettingsModal() {
+            elements.initialCapitalInput.value = journalData.portfolio.initialCapital;
+            elements.settingsModal.classList.remove('hidden');
+        }
+        function hideSettingsModal() { elements.settingsModal.classList.add('hidden'); }
+        function showClosePositionModal(index) {
+            positionToClose = index;
+            elements.closePositionInput.value = '';
+            elements.closePositionModal.classList.remove('hidden');
+            elements.closePositionInput.focus();
+        }
+        function hideClosePositionModal() {
+            positionToClose = null;
+            elements.closePositionModal.classList.add('hidden');
+        }
+        function showDeleteModal(type, index) {
+            itemToDelete = { type, index };
+            elements.deleteModal.classList.remove('hidden');
+        }
+        function hideDeleteModal() {
+            itemToDelete = null;
+            elements.deleteModal.classList.add('hidden');
+        }
+        function saveToLocalStorage() { localStorage.setItem('tradingJournalData_v10', JSON.stringify(journalData)); }
+
+        function formatCurrency(value) { return `฿${(value || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+        function formatPercent(value) { return `${(value || 0).toFixed(2)}%`; }
+
+        function calculateStats() {
+            const { closedTrades, initialCapital } = journalData.portfolio;
+            const stats = elements.stats;
+            if (closedTrades.length === 0) {
+                Object.keys(stats).forEach(key => {
+                    const el = stats[key];
+                    if (key.includes('Gain') || key.includes('profitability') || key.includes('drawdown')) el.textContent = formatPercent(0);
+                    else if (key === 'balance') el.textContent = formatCurrency(initialCapital);
+                    else if (key === 'trades') el.textContent = '0';
+                    else if (key === 'profitFactor' || key === 'avgTradeLength') el.textContent = 'N/A';
+                    else el.textContent = formatCurrency(0);
+                });
+                updateChart([]);
+                return;
+            }
+
+            let totalPnl = 0, totalWins = 0, grossProfit = 0, grossLoss = 0, totalCommissions = 0;
+            let bestTrade = -Infinity, worstTrade = Infinity, totalDuration = 0;
+            const pnlList = [], equityCurve = [initialCapital];
+            let peakEquity = initialCapital, maxDrawdown = 0;
+
+            closedTrades.forEach(trade => {
+                totalPnl += trade.netPnl;
+                const currentEquity = initialCapital + totalPnl;
+                equityCurve.push(currentEquity);
+                pnlList.push(trade.netPnl);
+                totalCommissions += trade.commission;
+                if (currentEquity > peakEquity) peakEquity = currentEquity;
+                const drawdown = ((peakEquity - currentEquity) / peakEquity) * 100;
+                if (drawdown > maxDrawdown) maxDrawdown = drawdown;
+                if (trade.netPnl > 0) { totalWins++; grossProfit += trade.netPnl; } 
+                else if (trade.netPnl < 0) { grossLoss += Math.abs(trade.netPnl); }
+                if (trade.netPnl > bestTrade) bestTrade = trade.netPnl;
+                if (trade.netPnl < worstTrade) worstTrade = trade.netPnl;
+                totalDuration += new Date(trade.closeTimestamp) - new Date(trade.timestamp);
+            });
+
+            const finalBalance = initialCapital + totalPnl;
+            const gain = initialCapital > 0 ? (totalPnl / initialCapital) * 100 : 0;
+            const winRate = (closedTrades.length > 0) ? (totalWins / closedTrades.length) * 100 : 0;
+            const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : Infinity;
+            const avgWin = totalWins > 0 ? grossProfit / totalWins : 0;
+            const avgLoss = (closedTrades.length - totalWins) > 0 ? grossLoss / (closedTrades.length - totalWins) : 0;
+            const expectancy = (winRate / 100 * avgWin) - ((100 - winRate) / 100 * avgLoss);
+            const meanPnl = closedTrades.length > 0 ? totalPnl / closedTrades.length : 0;
+            const stdDev = closedTrades.length > 0 ? Math.sqrt(pnlList.map(x => Math.pow(x - meanPnl, 2)).reduce((a, b) => a + b) / closedTrades.length) : 0;
+            const avgDurationMs = closedTrades.length > 0 ? totalDuration / closedTrades.length : 0;
+            const hours = Math.floor(avgDurationMs / 3600000);
+            const minutes = Math.floor((avgDurationMs % 3600000) / 60000);
+            const firstTradeDate = new Date(closedTrades[0].timestamp);
+            const lastTradeDate = new Date(closedTrades[closedTrades.length - 1].closeTimestamp);
+            const totalDays = (lastTradeDate - firstTradeDate) / (1000 * 60 * 60 * 24) || 1;
+            const dailyGain = Math.pow(1 + gain / 100, 1 / totalDays) - 1;
+            const monthlyGain = Math.pow(1 + gain / 100, 30 / totalDays) - 1;
+
+            stats.gain.textContent = formatPercent(gain);
+            stats.absGain.textContent = formatPercent(gain);
+            stats.daily.textContent = formatPercent(dailyGain * 100);
+            stats.monthly.textContent = formatPercent(monthlyGain * 100);
+            stats.drawdown.textContent = formatPercent(maxDrawdown);
+            stats.balance.textContent = formatCurrency(finalBalance);
+            stats.trades.textContent = closedTrades.length;
+            stats.profitability.textContent = formatPercent(winRate);
+            stats.profitFactor.textContent = isFinite(profitFactor) ? profitFactor.toFixed(2) : '∞';
+            stats.stdDev.textContent = formatCurrency(stdDev);
+            stats.expectancy.textContent = formatCurrency(expectancy);
+            stats.avgWin.textContent = formatCurrency(avgWin);
+            stats.avgLoss.textContent = formatCurrency(avgLoss);
+            stats.avgTradeLength.textContent = `${hours}h ${minutes}m`;
+            stats.bestTrade.textContent = formatCurrency(bestTrade);
+            stats.worstTrade.textContent = formatCurrency(worstTrade);
+            stats.commissions.textContent = formatCurrency(totalCommissions);
+            
+            updateChart(equityCurve);
+        }
+
+        function updateChart(equityData) {
+            equityChart.data.labels = Array.from({ length: equityData.length }, (_, i) => i);
+            equityChart.data.datasets[0].data = equityData;
+            equityChart.update();
+        }
+
+        function renderOpenPositions() {
+            const openPositions = journalData.portfolio.openPositions;
+            elements.openPositionsTableBody.innerHTML = '';
+            if (openPositions.length === 0) {
+                elements.openPositionsTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-500">ไม่มีสถานะที่เปิดอยู่</td></tr>`;
+                return;
+            }
+            openPositions.forEach((pos, index) => {
+                const config = Object.values(INSTRUMENT_CONFIG).find(c => c.symbol === pos.symbol);
+                const decimals = config ? config.decimalPlaces : 2;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-400">${pos.symbol}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${pos.side}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${pos.openPrice.toFixed(decimals)}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <input type="number" step="any" data-index="${index}" class="current-price-input w-24 bg-slate-700 p-1 rounded" 
+                               placeholder="ราคาตลาด" value="${marketPrices[pos.symbol] > 0 ? marketPrices[pos.symbol].toFixed(decimals) : ''}">
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap unrealized-pnl font-semibold" data-index="${index}">-</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-index="${index}" class="close-pos-btn text-green-400 hover:text-green-300 mr-3">ปิดสถานะ</button>
+                        <button data-index="${index}" class="delete-open-pos-btn text-red-500 hover:text-red-400">ลบ</button>
+                    </td>
+                `;
+                elements.openPositionsTableBody.appendChild(row);
+            });
+            updateLivePricesUI();
+        }
+
+        function renderClosedTrades() {
+            const closedTrades = journalData.portfolio.closedTrades;
+            elements.closedTradesTableBody.innerHTML = '';
+            if (closedTrades.length === 0) {
+                elements.closedTradesTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-500">ยังไม่มีประวัติการเทรด</td></tr>`;
+                return;
+            }
+            closedTrades.forEach((trade, index) => {
+                const config = Object.values(INSTRUMENT_CONFIG).find(c => c.symbol === trade.symbol);
+                const decimals = config ? config.decimalPlaces : 2;
+                const row = document.createElement('tr');
+                const pnlClass = trade.netPnl >= 0 ? 'text-green-400' : 'text-red-400';
+                const duration = (new Date(trade.closeTimestamp) - new Date(trade.timestamp)) / 60000;
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-400">
+                        <div>${new Date(trade.timestamp).toLocaleString('th-TH')}</div>
+                        <div class="text-xs text-slate-500">(${duration.toFixed(0)} mins)</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-slate-400">${trade.symbol}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${trade.side}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">${trade.openPrice.toFixed(decimals)} → ${trade.closePrice.toFixed(decimals)}</td>
+                    <td class="px-4 py-3 whitespace-nowrap font-semibold ${pnlClass}">${formatCurrency(trade.netPnl)}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-index="${index}" class="delete-closed-trade-btn text-red-500 hover:text-red-400">ลบ</button>
+                    </td>
+                `;
+                elements.closedTradesTableBody.appendChild(row);
+            });
+        }
+
+        function updateUI() {
+            renderOpenPositions();
+            renderClosedTrades();
+            calculateStats();
+        }
+
+        elements.openPositionForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const instrumentKey = document.getElementById('instrument').value;
+            const config = INSTRUMENT_CONFIG[instrumentKey];
+            const newPosition = {
+                symbol: config.symbol,
+                timestamp: new Date().toISOString(),
+                side: document.getElementById('side').value,
+                contracts: parseFloat(document.getElementById('contracts').value),
+                openPrice: parseFloat(document.getElementById('open-price').value),
+                strategy: document.getElementById('strategy').value,
+                emotion: document.getElementById('emotion').value
+            };
+            journalData.portfolio.openPositions.push(newPosition);
+            saveToLocalStorage();
+            updateUI();
+            elements.openPositionForm.reset();
+        });
+
+        elements.openPositionsTableBody.addEventListener('focusin', e => {
+            if (e.target.classList.contains('current-price-input')) {
+                focusedInputIndex = parseInt(e.target.dataset.index);
+            }
+        });
+
+        elements.openPositionsTableBody.addEventListener('focusout', e => {
+            if (e.target.classList.contains('current-price-input')) {
+                focusedInputIndex = null;
+            }
+        });
+
+        elements.openPositionsTableBody.addEventListener('input', e => {
+            if (e.target.classList.contains('current-price-input')) {
+                const index = parseInt(e.target.dataset.index);
+                const pos = journalData.portfolio.openPositions[index];
+                const newPrice = parseFloat(e.target.value);
+                if (!isNaN(newPrice)) {
+                    marketPrices[pos.symbol] = newPrice;
+                    updateLivePricesUI();
+                }
+            }
+        });
+
+        elements.openPositionsTableBody.addEventListener('click', e => {
+            if (e.target.classList.contains('close-pos-btn')) {
+                showClosePositionModal(parseInt(e.target.dataset.index));
+            } else if (e.target.classList.contains('delete-open-pos-btn')) {
+                showDeleteModal('open', parseInt(e.target.dataset.index));
+            }
+        });
+        
+        elements.closedTradesTableBody.addEventListener('click', e => {
+            if (e.target.classList.contains('delete-closed-trade-btn')) {
+                showDeleteModal('closed', parseInt(e.target.dataset.index));
+            }
+        });
+
+        elements.deleteModalConfirm.addEventListener('click', () => {
+            if (!itemToDelete) return;
+            const { type, index } = itemToDelete;
+            if (type === 'open') {
+                journalData.portfolio.openPositions.splice(index, 1);
+            } else if (type === 'closed') {
+                journalData.portfolio.closedTrades.splice(index, 1);
+            }
+            saveToLocalStorage();
+            updateUI();
+            hideDeleteModal();
+        });
+
+        elements.closeModalConfirmBtn.addEventListener('click', () => {
+            if (positionToClose === null) return;
+            const closePrice = parseFloat(elements.closePositionInput.value);
+            if (isNaN(closePrice)) { alert('กรุณากรอกราคาปิดให้ถูกต้อง'); return; }
+            
+            const openPos = journalData.portfolio.openPositions.splice(positionToClose, 1)[0];
+            const config = Object.values(INSTRUMENT_CONFIG).find(c => c.symbol === openPos.symbol);
+            
+            let pnl = 0;
+            if (openPos.side === 'LONG') pnl = (closePrice - openPos.openPrice) * openPos.contracts * config.multiplier;
+            else pnl = (openPos.openPrice - closePrice) * openPos.contracts * config.multiplier;
+            
+            const totalCommission = config.commissionPerContract * 2 * openPos.contracts;
+            const netPnl = pnl - totalCommission;
+
+            const closedTrade = { ...openPos, closePrice, netPnl, commission: totalCommission, closeTimestamp: new Date().toISOString() };
+            journalData.portfolio.closedTrades.push(closedTrade);
+            journalData.portfolio.closedTrades.sort((a,b) => new Date(a.closeTimestamp) - new Date(b.closeTimestamp));
+            
+            saveToLocalStorage();
+            updateUI();
+            hideClosePositionModal();
+        });
+
+        function updateMockPrices() {
+            Object.keys(marketPrices).forEach(symbol => {
+                if (marketPrices[symbol] <= 0) return;
+                const config = Object.values(INSTRUMENT_CONFIG).find(c => c.symbol === symbol);
+                if (!config) return;
+                
+                const tick = config.tick;
+                const change = (Math.random() - 0.49) * tick * 5;
+                marketPrices[symbol] += change;
+            });
+        }
+
+        function updateLivePricesUI() {
+            const openPositions = journalData.portfolio.openPositions;
+            if (openPositions.length === 0) return;
+
+            openPositions.forEach((pos, index) => {
+                if (index === focusedInputIndex) return;
+
+                const marketPriceEl = document.querySelector(`.current-price-input[data-index="${index}"]`);
+                const unrealizedPnlEl = document.querySelector(`.unrealized-pnl[data-index="${index}"]`);
+                if (!marketPriceEl || !unrealizedPnlEl) return;
+
+                const currentPrice = marketPrices[pos.symbol];
+                if (currentPrice <= 0) {
+                    unrealizedPnlEl.textContent = '-';
+                    return;
+                };
+
+                const config = Object.values(INSTRUMENT_CONFIG).find(c => c.symbol === pos.symbol);
+                const decimals = config ? config.decimalPlaces : 2;
+
+                const oldPriceText = marketPriceEl.value;
+                const oldPrice = parseFloat(oldPriceText);
+
+                marketPriceEl.value = currentPrice.toFixed(decimals);
+                if (!isNaN(oldPrice)) {
+                    if (currentPrice > oldPrice) marketPriceEl.classList.add('price-up'); else marketPriceEl.classList.remove('price-up');
+                    if (currentPrice < oldPrice) marketPriceEl.classList.add('price-down'); else marketPriceEl.classList.remove('price-down');
+                }
+
+                const multiplier = config ? config.multiplier : 1;
+                let pnl = 0;
+                if (pos.side === 'LONG') pnl = (currentPrice - pos.openPrice) * pos.contracts * multiplier;
+                else pnl = (pos.openPrice - currentPrice) * pos.contracts * multiplier;
+                
+                unrealizedPnlEl.textContent = formatCurrency(pnl);
+                unrealizedPnlEl.className = `px-4 py-3 whitespace-nowrap unrealized-pnl font-semibold ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`;
+            });
+        }
+        
+        setInterval(() => {
+            updateMockPrices();
+            updateLivePricesUI();
+        }, 2500);
+
+        elements.settingsBtn.addEventListener('click', showSettingsModal);
+        elements.settingsModalCancel.addEventListener('click', hideSettingsModal);
+        elements.settingsModalConfirm.addEventListener('click', () => {
+            const newCapital = parseFloat(elements.initialCapitalInput.value);
+            if (!isNaN(newCapital) && newCapital >= 0) {
+                journalData.portfolio.initialCapital = newCapital;
+                saveToLocalStorage();
+                calculateStats();
+                hideSettingsModal();
+            } else {
+                alert('กรุณากรอกเงินทุนเริ่มต้นให้ถูกต้อง');
+            }
+        });
+        
+        elements.closeModalCancelBtn.addEventListener('click', hideClosePositionModal);
+        elements.deleteModalCancel.addEventListener('click', hideDeleteModal);
+        elements.deleteModalConfirm.addEventListener('click', () => {
+             if (!itemToDelete) return;
+            const { type, index } = itemToDelete;
+            if (type === 'open') {
+                journalData.portfolio.openPositions.splice(index, 1);
+            } else if (type === 'closed') {
+                journalData.portfolio.closedTrades.splice(index, 1);
+            }
+            saveToLocalStorage();
+            updateUI();
+            hideDeleteModal();
+        });
+
+        updateUI();
+    });
+    </script>
+</body>
+</html>
